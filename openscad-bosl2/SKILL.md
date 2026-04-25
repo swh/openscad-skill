@@ -187,6 +187,20 @@ When suggesting, name **one primary recommendation and one fallback**, and give 
 
 If the use case is genuinely ambiguous (display *or* working tool? indoor *or* outdoor?), ask before recommending.
 
+### Export format
+
+When telling the user how to take a `.scad` file into the slicer, **recommend 3MF over STL** wherever the slicer supports it (Bambu Studio, OrcaSlicer, PrusaSlicer, recent Cura, SuperSlicer — i.e. essentially every modern slicer). 3MF preserves precision, includes units, supports multi-material/colour, and produces smaller files than ASCII STL.
+
+OpenSCAD exports 3MF directly:
+
+```sh
+openscad -o part.3mf part.scad
+```
+
+Suggest STL only when the target tool genuinely doesn't accept 3MF.
+
+**Pre-configured 3MF projects.** If the user has set up a slicer template (see [`openscad-pack-3mf`](#openscad-pack-3mf) under Tools), prefer it — it produces a `.3mf` that opens in Bambu Studio / OrcaSlicer with their printer, filament, and process already set up, plus the template's baked default settings. **For any setting where your part-specific recommendation diverges from those defaults, pass `--set KEY=VALUE` so the override travels with the file.** Don't fall back to plain `openscad -o part.3mf` just because you'd change one or two settings — list the divergences as `--set` flags and the user gets a one-click slice.
+
 ### Slicer parameters
 
 After delivering the `.scad` file, recommend slicer settings unless the user has already specified them. Always include layer height; include the others when they're relevant to the part. Keep the recommendation to a few lines — not a full slicer profile.
@@ -221,11 +235,13 @@ After delivering the `.scad` file, recommend slicer settings unless the user has
 
 Skip parameters that don't apply (e.g. don't recommend ironing on a part with no flat top). A typical recommendation might read:
 
-> *"Suggested slicer settings: 0.2 mm layer height, PETG, 3 walls, 20 % grid infill, 4 top/bottom layers, no supports needed in this orientation, brim recommended (small footprint)."*
+> *"Suggested slicer settings: 0.2 mm layer height, PETG, 4 walls, 25 % cubic infill, 6 top / 5 bottom layers, no supports needed in this orientation, auto brim 7 mm."*
+
+These match the defaults baked into the canonical `openscad-pack-3mf` template — biased a notch toward strength and cosmetic flat-top quality vs. Bambu's stock 0.2 mm preset. Change them in the recommendation when the part calls for it (e.g. raise infill density for a load-bearing bracket, change pattern to gyroid for genuinely omnidirectional load, drop walls/shells back to 3/4 for fast cosmetic prints).
 
 ## Tools
 
-This skill ships helper scripts. **Always invoke them by their full path inside the skill** — the working directory is rarely the skill repo, so `tools/openscad-check` will fail in most projects. Use:
+This skill ships helper scripts and binaries. **Always invoke them by their full path inside the skill** — the working directory is rarely the skill repo, so `tools/openscad-check` will fail in most projects. Use:
 
 ```sh
 ~/.claude/skills/openscad-bosl2/tools/openscad-check FILE.scad
@@ -233,6 +249,8 @@ This skill ships helper scripts. **Always invoke them by their full path inside 
 ```
 
 (That path works because the skill is installed user-level via symlink. If a particular project installs the skill at `<project>/.claude/skills/openscad-bosl2/` instead, adjust accordingly.)
+
+`openscad-check` and `openscad-render` are bash scripts. `openscad-pack-3mf` and `openscad-build-template` are Go binaries built from `cmd/` — run `make` in the skill's clone after `git pull` if anything under `cmd/` or `internal/` changed.
 
 ### `openscad-check`
 
@@ -264,6 +282,120 @@ Render a `.scad` file to a PNG for visual review. Default is a full CGAL render 
 Use `--preview` for quick visual sanity-checks on large/heavy files; the default render is slower but matches what slicers will see.
 
 Both scripts honour `$OPENSCAD` to override the binary path; otherwise they search `PATH` and standard install locations including `/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD`.
+
+### `openscad-pack-3mf`
+
+Splice OpenSCAD geometry into a slicer **template** project 3MF — the output opens in Bambu Studio / OrcaSlicer with the user's printer, filament, and process settings already applied (Bambu's project format is the only way slicer settings travel with a 3MF; this tool reuses a pre-saved project as a template).
+
+**When to use it:** by default, every time. The template carries one fixed set of slicer defaults (baked in by `openscad-build-template`); for any setting where your part-specific recommendation diverges, **pass `--set KEY=VALUE`** to override on top of the template. The override is written into the project's settings *and* added to the slicer's "differs from preset" list, so it survives a project open instead of silently re-syncing.
+
+For **filament selection**, use `--filament-type` / `--ams-slot` / `--filament` instead of `--set` (filament is a multi-key concern — temps, flow ratios, fan speeds — that only stays consistent when set together from a real Bambu profile).
+
+```sh
+# Recommendation aligns with template defaults — splice and go:
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf part.scad
+
+# Recommendation diverges (load-bearing bracket: more infill, omnidirectional pattern, supports on):
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf \
+    --set sparse_infill_density=50% \
+    --set sparse_infill_pattern=gyroid \
+    --set enable_support=1 \
+    part.scad
+
+# Use whatever PETG is currently in the AMS (preferred — survives spool changes):
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf --filament-type PETG part.scad
+
+# Pick a specific AMS slot:
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf --ams-slot 2 part.scad
+
+# Force a specific Bambu profile regardless of AMS state:
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf \
+    --filament "Bambu PETG HF @BBL X1C" part.scad
+```
+
+**Filament selection rules:**
+
+- Prefer `--filament-type TYPE` (e.g. `PLA`, `PETG`, `PETG-CF`, `ABS`) — the tool reads Bambu Studio's cached AMS state and picks the first slot loaded with that type. The user doesn't have to re-edit the recommendation when they change spools.
+- Use `--ams-slot N` (0-indexed) when you specifically need slot N's filament.
+- Use `--filament NAME` only when AMS isn't loaded with the right type or you need a specific profile (e.g. `Bambu PLA Matte @BBL X1C` over a Generic PLA).
+- At most one of these flags per call. Apply *before* `--set`, so `--set nozzle_temperature=260` cleanly fine-tunes the filament's value.
+- Caveat: AMS state is updated via MQTT when Bambu Studio is connected to the printer. If spools are swapped while Bambu Studio is closed, the cache goes stale.
+
+Common Bambu Studio override keys (use the slicer-native names verbatim):
+
+| Key                           | Example values                                      |
+|-------------------------------|------------------------------------------------------|
+| `layer_height`                | `0.12`, `0.16`, `0.2`, `0.28`                        |
+| `wall_loops`                  | `2`, `3`, `4`, `5`                                   |
+| `top_shell_layers`            | `4`, `5`, `6`                                        |
+| `bottom_shell_layers`         | `4`, `5`                                             |
+| `sparse_infill_density`       | `15%`, `25%`, `40%`, `60%`                           |
+| `sparse_infill_pattern`       | `crosshatch`, `cubic`, `gyroid`, `grid`, `lightning`, `concentric` |
+| `enable_support`              | `0` (off), `1` (on)                                  |
+| `support_type`                | `tree(auto)`, `tree(organic)`, `normal(auto)`        |
+| `brim_type`                   | `auto_brim`, `outer_only`, `no_brim`                 |
+| `brim_width`                  | `5`, `8`                                             |
+| `ironing_type`                | `topmost`, `top`, `no ironing`                       |
+
+For filament-side keys (temperatures, flow ratios, fan speeds, etc.) prefer `--filament*` over piecewise `--set`. Use `--set nozzle_temperature=260` only as a fine-tune *on top* of a filament selection. Values are written as strings — Bambu's `project_settings.config` is all-strings. `--set` / `--filament` etc. only work with `--slicer bambu-studio` for now.
+
+Fall back to plain `openscad -o part.3mf part.scad` only if the user explicitly doesn't want a configured project, or if they don't have a template set up yet.
+
+```sh
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf part.scad         # -> part-packed.3mf
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf -o /tmp/p.3mf part.scad
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf part.3mf          # accepts pre-rendered 3MF too
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf --slicer prusa-slicer part.scad   # different slicer template
+~/.claude/skills/openscad-bosl2/tools/openscad-pack-3mf -t /path/to/custom.3mf part.scad
+```
+
+By default it looks up `~/.config/openscad-bosl2/templates/<slicer>.3mf` (default `<slicer>` = `bambu-studio`). The template stores the settings; the tool replaces the geometry and centres the new part on the build plate.
+
+**To set up a template the first time:**
+
+1. Render the seed: `openscad -o /tmp/seed.3mf ~/.claude/skills/openscad-bosl2/tools/template-seed.scad`
+2. Open `/tmp/seed.3mf` in your slicer; set printer / filament / process / supports / etc. as you'd like them.
+3. **File → Save Project As…** to anywhere, e.g. `/tmp/my-template.3mf`.
+4. Run [`openscad-build-template`](#openscad-build-template) on the saved project. It applies the skill's default overrides (and strips placement transforms / thumbnails) and writes the canonical template to `~/.config/openscad-bosl2/templates/bambu-studio.3mf`.
+
+After that, every `openscad-pack-3mf` run produces a 3MF ready to slice with those settings.
+
+**AMS state — cache by default, live MQTT opt-in:** for `--ams-slot` and `--filament-type`, the tool reads Bambu Studio's local cache (`BambuStudio.conf`) by default — that cache stays current as long as Bambu Studio has recently been open with the printer online. **Don't push the user toward live MQTT unless they ask** for it; the cache is the right answer for almost everyone.
+
+Live MQTT reads are useful only in a narrow case: the user swaps AMS spools while Bambu Studio is closed, *and* they're willing to enable LAN-only mode (Bambu firmware after ~May 2024 only allows local MQTT in LAN-only mode, which disables Bambu Cloud / Handy / MakerWorld direct-print).
+
+If credentials are configured (env vars and/or a CLAUDE.md block), the tool tries MQTT first and falls back to the cache transparently when it can't connect — no error, just a one-line stderr note. Recognised env vars (env overrides CLAUDE.md):
+
+```sh
+export BAMBU_ACCESS_CODE=12345678          # ALWAYS recommend env, never CLAUDE.md
+export BAMBU_SERIAL=00M09C460402058        # optional; may also be in CLAUDE.md
+export BAMBU_HOST=192.168.1.42             # optional; may also be in CLAUDE.md
+```
+
+```markdown
+## Bambu printer (MQTT)
+
+- Serial: 00M09C460402058
+- Host: 192.168.1.42
+```
+
+**The access code is a secret — never tell the user to put it in CLAUDE.md** (CLAUDE.md is loaded into prompt context). Always recommend `BAMBU_ACCESS_CODE`. Serial and host are fine in CLAUDE.md if the user wants Claude to know which printer is in use.
+
+The success summary reports `AMS state: live (MQTT, <host>)` when MQTT succeeds, otherwise `cached (BambuStudio.conf)`.
+
+**Limitations (v1):** single object only; single plate; the canonical template's transform is overwritten on every splice (parts always land centred on plate, on z=0); MQTT requires `Host` (auto-discovery via mDNS may come later).
+
+### `openscad-build-template`
+
+Convert a slicer-saved project `.3mf` into a canonical `openscad-pack-3mf` template — applies the skill's default overrides for layer height / wall count / shell layers / infill / brim, ensures Bambu Studio honours them on open (by adding the keys to `different_settings_to_system`), strips placement transforms, and drops stale thumbnails.
+
+```sh
+~/.claude/skills/openscad-bosl2/tools/openscad-build-template /tmp/my-template.3mf
+~/.claude/skills/openscad-bosl2/tools/openscad-build-template --slicer bambu-studio /tmp/my.3mf
+~/.claude/skills/openscad-bosl2/tools/openscad-build-template -o ~/foo.3mf /tmp/my.3mf
+```
+
+Run this any time the SKILL.md slicer-parameter defaults change, or whenever you save a fresh slicer project you want to use as the basis. Currently only `bambu-studio` is implemented; PrusaSlicer / OrcaSlicer / Cura would each need their own override-key set added to the tool.
 
 ## Reference sub-docs
 
