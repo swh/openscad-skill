@@ -72,22 +72,26 @@ Affordable enclosed CoreXYs. K1 is the smallest; K1 Max scales to 300 mm; K2 Plu
 
 ## What to record in your project's `CLAUDE.md`
 
-When you switch or add a printer, capture these in the project / parent `CLAUDE.md` so the skill's recommendations stay accurate:
+You only need to **name the printer** — the spec table in this file is the source of truth, so don't duplicate it. A two-line block is enough:
 
 ```markdown
 ## Printer
 
-- **Model:** [e.g. Bambu X1C]
-- **Build volume:** [X × Y × Z mm], multi-material effective: [X × Y mm]
-- **Enclosed:** [yes/no — passive/active chamber °C if any]
-- **Max nozzle / bed:** [°C / °C]
-- **Hardened nozzle:** [yes/no/aftermarket]
-- **Multi-material:** [AMS / MMU3 / CFS / toolchanger / none]
-- **Default material:** [e.g. PETG]
-- **Slicer:** [Bambu Studio / OrcaSlicer / PrusaSlicer / etc.]
+**Bambu X1C** — see `~/.claude/skills/openscad-bosl2/references/printers.md` for specs.
 ```
 
-That's enough for the skill to reason about whether a part will fit, whether the suggested filament is printable, and whether to assume an enclosure.
+Optionally add a project-specific override line for things this table doesn't capture (default material if it differs from the suggestions in the skill, slicer choice, an aftermarket nozzle upgrade, etc.):
+
+```markdown
+## Printer
+
+**Bambu X1C** — see `~/.claude/skills/openscad-bosl2/references/printers.md` for specs.
+- **Default material:** PETG
+- **Slicer:** OrcaSlicer
+- **Notes:** 0.6 mm hardened nozzle fitted; treat composite filaments as fully supported.
+```
+
+If your printer isn't in the table, add a row to it (and update the "Sources" list at the bottom of this file) instead of inlining the full spec block in your `CLAUDE.md`.
 
 ## Sources
 

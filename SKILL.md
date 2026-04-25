@@ -7,7 +7,7 @@ description: Write or edit OpenSCAD (.scad) files using the BOSL2 library. Use w
 
 This skill guides Claude in writing OpenSCAD code that matches the user's house style: BOSL2-first, anchor-driven, parametric, Customizer-friendly, and tuned for FDM 3D printing.
 
-The user's specific printer model is recorded in the project / parent `CLAUDE.md`, not here — printer-specific limits (build volume, max nozzle temp, enclosed vs open, supported materials) come from there. If they're missing or you're unsure which model is in use, **ask** before designing around capacity or material assumptions. See [`references/printers.md`](references/printers.md) for a table of common printer specs.
+The user's specific printer model is named in the project / parent `CLAUDE.md`. The CLAUDE.md typically only names the model — look up its specs (build volume, max nozzle/bed temps, enclosure, multi-material, hardened nozzle) in [`references/printers.md`](references/printers.md). If the CLAUDE.md doesn't name a printer, or names one that isn't in the table, **ask** before designing around capacity or material assumptions.
 
 ## When to use
 
