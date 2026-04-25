@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# openscad-render — render an OpenSCAD/.scad file to a PNG for visual review.
+#
+# Defaults to a full CGAL render with the camera framed to fit the whole
+# object (--viewall --autocenter). Use --preview for fast ThrownTogether
+# output on heavy files.
+#
+# Usage:
+#   openscad-render [options] FILE.scad [FILE.scad ...]
+#
+# Options:
+#   -o, --out PATH     Output PNG path (only valid with a single input).
+#                      Default: replace .scad with .png alongside input.
+#   --size WxH         Image dimensions (default: 1024x768).
+#   --preview          Fast ThrownTogether preview (skips boolean evaluation).
+#   --camera SPEC      OpenSCAD --camera value:
+#                        translate_x,y,z,rot_x,y,z,dist  OR
+#                        eye_x,y,z,center_x,y,z
+#                      Disables the default --viewall/--autocenter framing.
+#   --view OPTS        Comma-separated view flags: axes, edges, scales, crosshairs.
+#   --projection MODE  ortho|perspective (default: perspective).
+#   --colorscheme NAME OpenSCAD colorscheme (default: Cornfield).
+#   -h, --help         Show this help.
+#
+# Env:
+#   OPENSCAD           Path to OpenSCAD binary. If unset, searches PATH and
+#                      then platform-specific install locations.
+#
+# Exit:
+#   0  all renders succeeded
+#   1  one or more renders failed
+#   2  usage error or OpenSCAD binary missing
+
+set -u
+
+find_openscad() {
+    if [[ -n "${OPENSCAD:-}" ]]; then
+        printf '%s\n' "$OPENSCAD"
+        return
+    fi
+    if command -v openscad >/dev/null 2>&1; then
+        command -v openscad
+        return
+    fi
+    local candidates=(
+        /Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD
+        /usr/bin/openscad
+        /usr/local/bin/openscad
+        /snap/bin/openscad
+    )
+    for c in "${candidates[@]}"; do
+        [[ -x "$c" ]] && { printf '%s\n' "$c"; return; }
+    done
+}
+
+usage() {
+    sed -n '3,32p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-2}"
+}
+
+out=""
+size="1024x768"
+preview=0
+camera=""
+view=""
+projection=""
+colorscheme=""
+files=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o|--out)        out="$2"; shift 2 ;;
+        --size)          size="$2"; shift 2 ;;
+        --preview)       preview=1; shift ;;
+        --camera)        camera="$2"; shift 2 ;;
+        --view)          view="$2"; shift 2 ;;
+        --projection)    projection="$2"; shift 2 ;;
+        --colorscheme)   colorscheme="$2"; shift 2 ;;
+        -h|--help)       usage 0 ;;
+        --)              shift; files+=("$@"); break ;;
+        -*)              echo "openscad-render: unknown option: $1" >&2; usage 2 ;;
+        *)               files+=("$1"); shift ;;
+    esac
+done
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    usage 2
+fi
+
+if [[ -n "$out" && ${#files[@]} -gt 1 ]]; then
+    echo "openscad-render: --out is only valid with a single input file." >&2
+    exit 2
+fi
+
+if [[ ! "$size" =~ ^[0-9]+x[0-9]+$ ]]; then
+    echo "openscad-render: --size must be WxH (e.g. 1024x768), got: $size" >&2
+    exit 2
+fi
+imgsize="${size/x/,}"
+
+OPENSCAD="$(find_openscad)"
+if [[ -z "$OPENSCAD" || ! -x "$OPENSCAD" ]]; then
+    echo "openscad-render: OpenSCAD binary not found." >&2
+    echo "  Searched: \$OPENSCAD, PATH, /Applications/OpenSCAD.app, /usr/{,local/}bin, /snap/bin." >&2
+    echo "  Set OPENSCAD env var to override." >&2
+    exit 2
+fi
+
+base_flags=(--imgsize="$imgsize")
+if [[ $preview -eq 1 ]]; then
+    base_flags+=(--preview=throwntogether)
+else
+    base_flags+=(--render=true)
+fi
+if [[ -n "$camera" ]]; then
+    base_flags+=(--camera="$camera")
+else
+    base_flags+=(--viewall --autocenter)
+fi
+[[ -n "$view" ]]        && base_flags+=(--view="$view")
+[[ -n "$projection" ]]  && base_flags+=(--projection="$projection")
+[[ -n "$colorscheme" ]] && base_flags+=(--colorscheme="$colorscheme")
+
+rc=0
+for f in "${files[@]}"; do
+    if [[ ! -f "$f" ]]; then
+        echo "$f: file not found" >&2
+        rc=1
+        continue
+    fi
+    if [[ -n "$out" ]]; then
+        target="$out"
+    else
+        target="${f%.scad}.png"
+        if [[ "$target" == "$f" ]]; then
+            target="$f.png"
+        fi
+    fi
+    if msg=$("$OPENSCAD" "${base_flags[@]}" -o "$target" "$f" 2>&1); then
+        printf '%s -> %s\n' "$f" "$target"
+    else
+        rc=1
+        printf '%s: FAILED\n' "$f" >&2
+        printf '%s\n' "$msg" | sed 's/^/  /' >&2
+        rm -f "$target"
+    fi
+done
+
+exit $rc

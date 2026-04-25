@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# openscad-check — validate OpenSCAD/.scad files without rendering geometry.
+#
+# Exports each input to AST so OpenSCAD parses and evaluates the program but
+# skips CSG/geometry work. Catches parse errors, unknown modules/variables,
+# and other warnings (treated as failures via --hardwarnings).
+#
+# Usage:
+#   openscad-check [--lenient] FILE.scad [FILE.scad ...]
+#
+# Options:
+#   --lenient   Don't fail on warnings (default: warnings are errors).
+#
+# Env:
+#   OPENSCAD    Path to OpenSCAD binary. If unset, the script searches PATH
+#               for `openscad` and then falls back to platform-specific
+#               install locations (macOS .app bundle).
+#
+# Exit:
+#   0  all files validated cleanly
+#   1  one or more files failed
+#   2  usage error or OpenSCAD binary missing
+
+set -u
+
+find_openscad() {
+    if [[ -n "${OPENSCAD:-}" ]]; then
+        printf '%s\n' "$OPENSCAD"
+        return
+    fi
+    if command -v openscad >/dev/null 2>&1; then
+        command -v openscad
+        return
+    fi
+    local candidates=(
+        /Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD
+        /usr/bin/openscad
+        /usr/local/bin/openscad
+        /snap/bin/openscad
+    )
+    for c in "${candidates[@]}"; do
+        [[ -x "$c" ]] && { printf '%s\n' "$c"; return; }
+    done
+}
+
+OPENSCAD="$(find_openscad)"
+
+usage() {
+    sed -n '3,21p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-2}"
+}
+
+lenient=0
+files=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --lenient) lenient=1; shift ;;
+        -h|--help) usage 0 ;;
+        --) shift; files+=("$@"); break ;;
+        -*) echo "openscad-check: unknown option: $1" >&2; usage 2 ;;
+        *)  files+=("$1"); shift ;;
+    esac
+done
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    usage 2
+fi
+
+if [[ -z "$OPENSCAD" || ! -x "$OPENSCAD" ]]; then
+    echo "openscad-check: OpenSCAD binary not found." >&2
+    echo "  Searched: \$OPENSCAD, PATH, /Applications/OpenSCAD.app, /usr/{,local/}bin, /snap/bin." >&2
+    echo "  Set OPENSCAD env var to override." >&2
+    exit 2
+fi
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+flags=(-o "$tmpdir/out.ast")
+[[ $lenient -eq 0 ]] && flags=(--hardwarnings "${flags[@]}")
+
+rc=0
+for f in "${files[@]}"; do
+    if [[ ! -f "$f" ]]; then
+        echo "$f: file not found" >&2
+        rc=1
+        continue
+    fi
+    if msg=$("$OPENSCAD" "${flags[@]}" "$f" 2>&1); then
+        if [[ -n "$msg" ]]; then
+            printf '%s: OK (with messages)\n' "$f"
+            printf '%s\n' "$msg" | sed 's/^/  /'
+        else
+            printf '%s: OK\n' "$f"
+        fi
+    else
+        rc=1
+        printf '%s: FAILED\n' "$f" >&2
+        printf '%s\n' "$msg" | sed 's/^/  /' >&2
+    fi
+done
+
+exit $rc
