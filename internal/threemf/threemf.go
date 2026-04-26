@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ThreeMF holds the unzipped contents of a 3MF archive. Files maps the
@@ -136,6 +137,48 @@ func (t *ThreeMF) DropThumbnails() {
 	}
 }
 
+// SetSourceTitle updates the file-identification metadata that Bambu Studio
+// shows in the project header / file list:
+//   - <metadata name="Title">...</metadata>          in 3D/3dmodel.model
+//   - <metadata key="source_file" value="..."/>      in Metadata/model_settings.config
+//
+// `name` should be a basename (no path), e.g. "bracket.scad". XML special
+// characters in the name are escaped.
+func (t *ThreeMF) SetSourceTitle(name string) {
+	escaped := xmlEscape(name)
+	if data, ok := t.Files["3D/3dmodel.model"]; ok {
+		t.Files["3D/3dmodel.model"] = reTitleMeta.ReplaceAll(data,
+			[]byte("${1}"+escaped+"${2}"))
+	}
+	if data, ok := t.Files["Metadata/model_settings.config"]; ok {
+		t.Files["Metadata/model_settings.config"] = reSourceFile.ReplaceAll(data,
+			[]byte("${1}"+escaped+"${2}"))
+	}
+}
+
+// SetModificationDate updates <metadata name="ModificationDate">YYYY-MM-DD</metadata>
+// in 3D/3dmodel.model. Pass "" to use today's date in the local timezone.
+func (t *ThreeMF) SetModificationDate(date string) {
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+	if data, ok := t.Files["3D/3dmodel.model"]; ok {
+		t.Files["3D/3dmodel.model"] = reModificationDate.ReplaceAll(data,
+			[]byte("${1}"+xmlEscape(date)+"${2}"))
+	}
+}
+
+func xmlEscape(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&apos;",
+	)
+	return r.Replace(s)
+}
+
 // reTransform matches `transform="..."` inside a tag. We use regex (not a
 // proper XML parser) because we only mutate one attribute per file and
 // preserving exact whitespace / namespace declarations is easier this way —
@@ -150,6 +193,9 @@ var (
 	reTrianglesBlock    = regexp.MustCompile(`(?s)<triangles\b[^>]*>.+?</triangles>`)
 	reVertexCoord       = regexp.MustCompile(`x="([^"]+)"\s+y="([^"]+)"\s+z="([^"]+)"`)
 	reTriangleTag       = regexp.MustCompile(`<triangle\b`)
+	reTitleMeta         = regexp.MustCompile(`(<metadata name="Title">)[^<]*(</metadata>)`)
+	reModificationDate  = regexp.MustCompile(`(<metadata name="ModificationDate">)[^<]*(</metadata>)`)
+	reSourceFile        = regexp.MustCompile(`(<metadata key="source_file" value=")[^"]*(")`)
 )
 
 // RewriteItemTransform replaces the placement transforms in 3D/3dmodel.model

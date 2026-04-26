@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# openscad-show — open PNG renders in the platform's default image viewer.
+#
+# Resolves each PATH:
+#   - regular file → opened directly
+#   - directory    → opens the most recent .png in that directory (or top N
+#                    via -n N)
+#
+# Usage:
+#   openscad-show [-n N] PATH [PATH ...]
+#
+# Options:
+#   -n N        For directory args, open the N most recent PNGs (default 1).
+#   -h, --help  Show this help.
+#
+# Exit:
+#   0  every requested viewer launched
+#   1  one or more paths failed to resolve / open
+#   2  usage error / no opener available
+
+set -u
+
+usage() {
+    sed -n '3,19p' "$0" | sed 's/^# \{0,1\}//'
+    exit "${1:-2}"
+}
+
+opener() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        echo open
+    elif command -v xdg-open >/dev/null 2>&1; then
+        echo xdg-open
+    elif [[ -n "${WINDIR:-}" ]] && command -v start >/dev/null 2>&1; then
+        echo start
+    else
+        echo ""
+    fi
+}
+
+n=1
+paths=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -n)         n="$2"; shift 2 ;;
+        -h|--help)  usage 0 ;;
+        --)         shift; paths+=("$@"); break ;;
+        -*)         echo "openscad-show: unknown option: $1" >&2; usage 2 ;;
+        *)          paths+=("$1"); shift ;;
+    esac
+done
+
+if [[ ${#paths[@]} -eq 0 ]]; then
+    usage 2
+fi
+if ! [[ "$n" =~ ^[0-9]+$ ]] || [[ "$n" -lt 1 ]]; then
+    echo "openscad-show: -n must be a positive integer, got: $n" >&2
+    exit 2
+fi
+
+OPEN="$(opener)"
+if [[ -z "$OPEN" ]]; then
+    echo "openscad-show: no image-opener found (need 'open' on macOS, 'xdg-open' on Linux, or 'start' on Windows)" >&2
+    exit 2
+fi
+
+rc=0
+to_open=()
+for p in "${paths[@]}"; do
+    if [[ -f "$p" ]]; then
+        to_open+=("$p")
+    elif [[ -d "$p" ]]; then
+        # Most recent N .png files in p (non-recursive).
+        # macOS stat -f vs Linux stat -c — use ls -t for portability.
+        while IFS= read -r f; do
+            [[ -n "$f" ]] && to_open+=("$f")
+        done < <(ls -t "$p"/*.png 2>/dev/null | head -n "$n")
+        if [[ ! -e "$p"/*.png ]] 2>/dev/null && ! ls "$p"/*.png >/dev/null 2>&1; then
+            echo "openscad-show: no PNG files in $p" >&2
+            rc=1
+        fi
+    else
+        echo "openscad-show: not a file or directory: $p" >&2
+        rc=1
+    fi
+done
+
+for f in "${to_open[@]}"; do
+    if ! "$OPEN" "$f" >/dev/null 2>&1; then
+        echo "openscad-show: failed to open $f" >&2
+        rc=1
+    else
+        echo "$f"
+    fi
+done
+
+exit $rc

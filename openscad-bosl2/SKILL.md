@@ -281,6 +281,25 @@ Render a `.scad` file to a PNG for visual review. Default is a full CGAL render 
 
 Use `--preview` for quick visual sanity-checks on large/heavy files; the default render is slower but matches what slicers will see.
 
+**Where the PNG goes.** Without `-o`, the tool writes `part.png` *next to* the source `.scad` — leave it there. **Don't pass `-o /tmp/...`** unless the user asks. Renders living next to the source make them easy to find later, easy to diff against future renders, and easy to surface back to the user via [`openscad-show`](#openscad-show).
+
+### `openscad-show`
+
+Open one or more rendered PNGs in the platform's default image viewer (`open` on macOS, `xdg-open` on Linux, `start` on Windows). Use this whenever the user asks to *see* / *look at* / *show me* a render.
+
+```sh
+~/.claude/skills/openscad-bosl2/tools/openscad-show part.png
+~/.claude/skills/openscad-bosl2/tools/openscad-show a.png b.png c.png    # multiple
+~/.claude/skills/openscad-bosl2/tools/openscad-show /path/to/dir          # most recent .png in that dir
+~/.claude/skills/openscad-bosl2/tools/openscad-show -n 3 /path/to/dir     # top 3 most recent
+```
+
+For a directory argument, the tool picks the most recently modified `.png` — useful when the user says "show me the latest render of the bracket" and Claude knows the project dir but not the exact filename. The tool prints each path it opens to stdout, so Claude can see what was actually launched.
+
+Default flow when the user asks to see a render:
+1. If a render hasn't happened yet for the current part, run `openscad-render` first (writes the PNG next to the .scad).
+2. Pass that PNG (or the project directory) to `openscad-show`.
+
 Both scripts honour `$OPENSCAD` to override the binary path; otherwise they search `PATH` and standard install locations including `/Applications/OpenSCAD.app/Contents/MacOS/OpenSCAD`.
 
 ### `openscad-pack-3mf`
@@ -360,7 +379,9 @@ By default it looks up `~/.config/openscad-bosl2/templates/<slicer>.3mf` (defaul
 
 After that, every `openscad-pack-3mf` run produces a 3MF ready to slice with those settings.
 
-**AMS state — cache by default, live MQTT opt-in:** for `--ams-slot` and `--filament-type`, the tool reads Bambu Studio's local cache (`BambuStudio.conf`) by default — that cache stays current as long as Bambu Studio has recently been open with the printer online. **Don't push the user toward live MQTT unless they ask** for it; the cache is the right answer for almost everyone.
+**AMS state — cache by default, live MQTT opt-in:** the tool **always syncs the printer's current AMS slot contents** (from `BambuStudio.conf`'s cache, or live MQTT if creds are set) into every slot of the output project, so the user's saved template doesn't show stale filaments. The cache stays current as long as Bambu Studio has recently been open with the printer online. **Don't push the user toward live MQTT unless they ask** for it; the cache is the right answer for almost everyone.
+
+`--ams-slot N` and `--filament-type T` both build on top of the default sync — they additionally set the active object's filament (slot 0) to a specific AMS slot's profile. `--filament NAME` skips the sync entirely on the assumption that the user wants a specific profile not necessarily in the AMS.
 
 Live MQTT reads are useful only in a narrow case: the user swaps AMS spools while Bambu Studio is closed, *and* they're willing to enable LAN-only mode (Bambu firmware after ~May 2024 only allows local MQTT in LAN-only mode, which disables Bambu Cloud / Handy / MakerWorld direct-print).
 

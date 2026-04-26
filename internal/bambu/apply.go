@@ -66,6 +66,83 @@ func ApplyFilament(t *threemf.ThreeMF, idx *FilamentIndex, name string) error {
 	return nil
 }
 
+// ApplyAMSState syncs all AMS slot contents into the template's per-slot
+// parallel arrays. For each slot whose AMS filament_id is non-empty, the
+// matching instantiable Bambu Studio profile (compatible with the project's
+// printer) is resolved and its values are splatted into that slot index of
+// project_settings.config. Empty AMS slots are left alone — keep whatever
+// the template had.
+//
+// This is the default sync: the user's saved template might list ABS in
+// slot 3, but the AMS may now hold PETG-CF; the splatted output reflects
+// the AMS.
+func ApplyAMSState(t *threemf.ThreeMF, idx *FilamentIndex, state AMSState, projectPrinter string) error {
+	slots, err := singleSlots(state)
+	if err != nil {
+		return err
+	}
+	cfg, err := t.ProjectSettings()
+	if err != nil {
+		return err
+	}
+	diffs := normaliseDiffs(cfg["different_settings_to_system"])
+
+	for i, fid := range slots {
+		if fid == "" {
+			continue
+		}
+		name, err := idx.NameForID(fid, projectPrinter)
+		if err != nil {
+			// Skip slots we can't resolve (e.g. third-party spool with an
+			// unrecognised ID) — leave the template's value in place.
+			continue
+		}
+		profile, err := idx.Effective(name)
+		if err != nil {
+			continue
+		}
+		for k, v := range profile {
+			if _, skip := FilamentMetaSkip[k]; skip {
+				continue
+			}
+			existing, ok := cfg[k]
+			if !ok {
+				continue
+			}
+			list, ok := existing.([]any)
+			if !ok {
+				continue
+			}
+			newVal := unwrapFirst(v)
+			if newVal == "nil" {
+				continue
+			}
+			// Grow the list if the AMS has more slots than the template.
+			for len(list) <= i {
+				list = append(list, "")
+			}
+			list[i] = newVal
+			cfg[k] = list
+		}
+		if list, ok := cfg["filament_settings_id"].([]any); ok {
+			for len(list) <= i {
+				list = append(list, "")
+			}
+			list[i] = name
+			cfg["filament_settings_id"] = list
+		}
+		// Slot i now matches the named system preset — clear its diff.
+		idxInDiffs := i + 2
+		for len(diffs) <= idxInDiffs {
+			diffs = append(diffs, "")
+		}
+		diffs[idxInDiffs] = ""
+	}
+
+	cfg["different_settings_to_system"] = toAnySlice(diffs)
+	return t.WriteProjectSettings(cfg)
+}
+
 // ApplyOverrides writes user --set KEY=VALUE pairs into project_settings.
 // Keys whose existing value is a list are written into slot 0 only and
 // added to different_settings_to_system[2] (slot-0 filament diffs).
