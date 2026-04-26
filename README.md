@@ -54,9 +54,9 @@ You also need [OpenSCAD](https://openscad.org/downloads.html), [BOSL2](https://g
 
 Most users don't need to do anything here — `tools/openscad-pack-3mf` reads AMS state from Bambu Studio's local cache (`BambuStudio.conf`), which Bambu Studio updates over MQTT whenever it's running and connected to your printer. As long as Bambu Studio has been open recently with the printer online, the cache reflects what's currently loaded.
 
-The cache only goes stale if you swap spools while Bambu Studio is **closed**. If that happens to you regularly, you can opt into live MQTT reads — but it requires enabling LAN-only mode on the printer, which most users won't want.
+The cache only goes stale if you swap spools while Bambu Studio is **closed**. If that happens to you regularly, you can opt into live MQTT reads — but it requires enabling LAN-only mode on the printer.
 
-#### Live MQTT (opt-in)
+#### Live MQTT (opt-in, LAN-mode only)
 
 To read AMS state straight from the printer, set credentials and enable LAN-only mode. Credentials come from env vars and/or a CLAUDE.md block; env vars override CLAUDE.md.
 
