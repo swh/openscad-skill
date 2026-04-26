@@ -10,7 +10,7 @@ Open Claude Code in any directory and paste this prompt, replacing the project d
 
 > Install the `openscad-bosl2` skill from `https://github.com/swh/openscad-skill` for me.
 >
-> 1. Clone it to **`~/Projects/`**`openscad-skill` and symlink the **`openscad-bosl2/` subdirectory** to `~/.claude/skills/openscad-bosl2` (only that subdir is the skill — the repo root holds Go source and build infrastructure).
+> 1. Clone it to **`~/Projects/openscad-skill`** and symlink the **`openscad-bosl2/` subdirectory** to `~/.claude/skills/openscad-bosl2` (only that subdir is the skill — the repo root holds Go source and build infrastructure).
 > 2. Run `make` in the clone to build the Go helper binaries into `openscad-bosl2/tools/`.
 > 3. Make sure OpenSCAD is installed (point me at the download page if not), and that BOSL2 is cloned into my OpenSCAD libraries directory.
 > 4. I have a **Bambu X1C**. Add a short `## Printer` section to `~/.claude/CLAUDE.md` (creating the file if needed) that names the printer and points at `~/.claude/skills/openscad-bosl2/references/printers.md` for its specs.
