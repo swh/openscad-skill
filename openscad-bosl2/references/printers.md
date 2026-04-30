@@ -13,6 +13,7 @@ The user records their current printer in the project / parent `CLAUDE.md`. If t
 | **Bambu P1P**        | 256 × 256 × 256       | No (panel kit avail.) | —  | 300       | 100    | AMS (4, ×4)     | No                     |
 | **Bambu P1S**        | 256 × 256 × 256       | Yes      | Passive ~50°C | 300       | 100    | AMS (4, ×4)     | Yes                    |
 | **Bambu X1C**        | 256 × 256 × 256       | Yes      | Passive ~50°C | 300       | 100    | AMS (4, ×4)     | Yes                    |
+| **Bambu X2D**        | 256 × 256 × 260      | Yes      | Active 65°C | 300       | 120    | AMS (4, ×4)     | Yes (Hardened Steel)                   |
 | **Bambu X1E**        | 350 × 320 × 325       | Yes      | Active 60°C   | 350       | 120    | AMS (4, ×4)     | Yes                    |
 | **Bambu H2D**        | 350 × 320 × 325       | Yes      | Active 65°C   | 350       | 120    | Dual nozzle     | Yes (tungsten carbide) |
 | **Prusa MK4S**       | 250 × 210 × 220       | No (enclosure kit avail.) | — | 290       | 120    | MMU3 (5)        | No                     |
@@ -32,13 +33,15 @@ The **Prusa XL** is the exception — independent toolheads mean no purge tower 
 
 The **Bambu H2D** uses two physical nozzles, also avoiding a purge tower for two-material prints.
 
+The **Bambu X2D** uses two physical nozzles, the second nozzle being bowden-fed. Also avoiding a purge tower for two-material prints.
+
 ## Material compatibility — rules of thumb
 
 - **PLA, PETG, TPU, PVA**: every printer in the table.
-- **PLA-CF, PETG-CF**: needs a hardened nozzle. Stock on P1S / X1C / X1E / H2D / K2 Plus; aftermarket upgrade on the others.
-- **ABS, ASA**: technically prints on open-frame machines (A1, P1P, MK4S, K1) but warps badly without an enclosure. Use enclosed printers (P1S / X1C / Core One / K1 Max / etc.) in practice.
-- **PA / PA-CF (Nylon)**: needs both a hardened nozzle *and* an actively heated chamber for best results. Reliable on X1E / Core One / H2D / K2 Plus; possible-but-finicky elsewhere.
-- **PC (Polycarbonate)**: needs ~280–300 °C nozzle, 100–120 °C bed, *and* an enclosure (ideally heated). Realistic on X1C / X1E / Core One / K1 Max / K2 Plus / H2D.
+- **PLA-CF, PETG-CF**: needs a hardened nozzle. Stock on P1S / X1C / X2D / X1E / H2D / K2 Plus; aftermarket upgrade on the others.
+- **ABS, ASA**: technically prints on open-frame machines (A1, P1P, MK4S, K1) but warps badly without an enclosure. Use enclosed printers (P1S / X1C / X2D / Core One / K1 Max / etc.) in practice.
+- **PA / PA-CF (Nylon)**: needs both a hardened nozzle *and* an actively heated chamber for best results. Reliable on X1E / Core One / H2D / X2D / K2 Plus; possible-but-finicky elsewhere.
+- **PC (Polycarbonate)**: needs ~280–300 °C nozzle, 100–120 °C bed, *and* an enclosure (ideally heated). Realistic on X1C / X1E / X2D / Core One / K1 Max / K2 Plus / H2D.
 - **PEEK / PEI / Ultem**: needs 350+ °C nozzle, ~120 °C bed, and an actively heated chamber (>60 °C). Only X1E, K2 Plus, and H2D approach this; even then, dedicated industrial machines are usually required for production-quality results.
 
 ## Per-printer notes
@@ -54,6 +57,9 @@ The flagship CoreXY for several years. Hardened nozzle, hardened extruder gears,
 
 ### Bambu X1E
 Enterprise X1 with **active chamber heating to 60 °C**, 350 °C hotend, 120 °C bed, ethernet, and lockdown firmware options. The serious engineering-materials Bambu.
+
+### Bambu X2D
+Dual-nozzle CoreXY (released 2026) — two physical hotends avoid purge towers for two-material prints. Second nozzle is bowden-fed. Tungsten-carbide nozzle option. Active chamber.
 
 ### Bambu H2D
 Dual-nozzle CoreXY (released 2025) — two physical hotends avoid purge towers for two-material prints. Tungsten-carbide nozzle option. Active chamber.
@@ -104,3 +110,4 @@ If your printer isn't in the table, add a row to it (and update the "Sources" li
 - [Original Prusa XL product page](https://www.prusa3d.com/product/original-prusa-xl-semi-assembled-single-toolhead-3d-printer/)
 - [Prusa forum: Maximum nozzle temperatures for XL, Core One, MK4/S](https://forum.prusa3d.com/forum/english-forum-general-discussion-announcements-and-releases/maximum-nozzle-temperatures-for-xl-core-one-mk4-s/)
 - [Creality K1 Max vs K2 Plus vs K1C](https://crealitysg.com/blogs/news/k1-max-vs-k2-plus)
+- [Bambu Lab X2D tech specs](https://bambulab.com/en/x2d/specs)
