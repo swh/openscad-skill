@@ -13,7 +13,7 @@ The user records their current printer in the project / parent `CLAUDE.md`. If t
 | **Bambu P1P**        | 256 × 256 × 256       | No (panel kit avail.) | —  | 300       | 100    | AMS (4, ×4)     | No                     |
 | **Bambu P1S**        | 256 × 256 × 256       | Yes      | Passive ~50°C | 300       | 100    | AMS (4, ×4)     | Yes                    |
 | **Bambu X1C**        | 256 × 256 × 256       | Yes      | Passive ~50°C | 300       | 100    | AMS (4, ×4)     | Yes                    |
-| **Bambu X2D**        | 256 × 256 × 260      | Yes      | Active 65°C | 300       | 120    | AMS (4, ×4)     | Yes (Hardened Steel)                   |
+| **Bambu X2D**        | 256 × 256 × 260       | Yes      | Active 65°C   | 300       | 120    | AMS (4, ×4)     | Yes (Hardened Steel)   |
 | **Bambu X1E**        | 350 × 320 × 325       | Yes      | Active 60°C   | 350       | 120    | AMS (4, ×4)     | Yes                    |
 | **Bambu H2D**        | 350 × 320 × 325       | Yes      | Active 65°C   | 350       | 120    | Dual nozzle     | Yes (tungsten carbide) |
 | **Prusa MK4S**       | 250 × 210 × 220       | No (enclosure kit avail.) | — | 290       | 120    | MMU3 (5)        | No                     |
